@@ -1,12 +1,11 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local DataStoreService = game:GetService("DataStoreService")
 
 local player = Players.LocalPlayer
 
--- Sistema de Salvamento com DataStore
-local dataStore = DataStoreService:GetDataStore("ZzzUI_SaveData")
+-- Sistema de Salvamento usando _G (global) para persistência durante a sessão
+-- E usando o navegador do jogo para salvar permanentemente
 local saveData = {
     autoAttack = false,
     esp = false,
@@ -17,18 +16,41 @@ local saveData = {
     speed = false
 }
 
-local SAVE_KEY = player.UserId .. "_ZzzUI_Config" -- Usar UserId para cada jogador
+local SAVE_KEY = "ZzzUI_SaveData"
 
--- Função para carregar dados salvos
-local function loadData()
+-- Função para salvar no navegador do Roblox
+local function saveToBrowser()
     pcall(function()
-        local success, data = pcall(function()
-            return dataStore:GetAsync(SAVE_KEY)
-        end)
+        if syn and syn.crypt and syn.crypt.base64 then
+            local encoded = syn.crypt.base64.encode(game:GetService("HttpService"):JSONEncode(saveData))
+            syn.io.writefile(SAVE_KEY .. ".txt", encoded)
+        elseif writefile then
+            local encoded = game:GetService("HttpService"):JSONEncode(saveData)
+            writefile(SAVE_KEY .. ".txt", encoded)
+        end
+        print("💾 Configurações salvas no arquivo!")
+    end)
+end
+
+-- Função para carregar do navegador
+local function loadFromBrowser()
+    pcall(function()
+        local data = nil
+        if syn and syn.io and syn.io.readfile then
+            local content = syn.io.readfile(SAVE_KEY .. ".txt")
+            if content then
+                local decoded = syn.crypt.base64.decode(content)
+                data = game:GetService("HttpService"):JSONDecode(decoded)
+            end
+        elseif readfile then
+            local content = readfile(SAVE_KEY .. ".txt")
+            if content then
+                data = game:GetService("HttpService"):JSONDecode(content)
+            end
+        end
         
-        if success and data then
-            local decodedData = data
-            for key, value in pairs(decodedData) do
+        if data then
+            for key, value in pairs(data) do
                 if saveData[key] ~= nil then
                     saveData[key] = value
                 end
@@ -44,27 +66,24 @@ end
 
 -- Função para salvar dados
 local function saveDataToFile()
-    pcall(function()
-        dataStore:SetAsync(SAVE_KEY, saveData)
-        print("💾 Configurações salvas!")
+    saveToBrowser()
+    
+    -- Mostrar notificação se o frame existir
+    if frame and frame.Parent then
+        local notif = Instance.new("TextLabel", frame)
+        notif.Size = UDim2.new(0,200,0,30)
+        notif.Position = UDim2.new(0.5,-100,0.5,100)
+        notif.Text = "💾 Configurações salvas!"
+        notif.BackgroundColor3 = Color3.fromRGB(0,170,0)
+        notif.TextColor3 = Color3.new(1,1,1)
+        notif.Font = Enum.Font.GothamBold
+        notif.TextSize = 12
+        Instance.new("UICorner", notif).CornerRadius = UDim.new(0,5)
+        notif.ZIndex = 10
         
-        -- Mostrar notificação
-        if frame and frame.Parent then
-            local notif = Instance.new("TextLabel", frame)
-            notif.Size = UDim2.new(0,200,0,30)
-            notif.Position = UDim2.new(0.5,-100,0.5,100)
-            notif.Text = "💾 Configurações salvas!"
-            notif.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            notif.TextColor3 = Color3.new(1,1,1)
-            notif.Font = Enum.Font.GothamBold
-            notif.TextSize = 12
-            Instance.new("UICorner", notif).CornerRadius = UDim.new(0,5)
-            notif.ZIndex = 10
-            
-            task.wait(2)
-            notif:Destroy()
-        end
-    end)
+        task.wait(2)
+        notif:Destroy()
+    end
 end
 
 -- GUI
@@ -179,7 +198,6 @@ local function criarToggle(nome, posY, saveKey)
     bg.Size = UDim2.new(1,-20,0,35)
     bg.Position = UDim2.new(0,10,0,posY)
     bg.BackgroundColor3 = Color3.fromRGB(40,40,40)
-
     Instance.new("UICorner", bg).CornerRadius = UDim.new(0,8)
 
     local txt = Instance.new("TextLabel", bg)
@@ -197,14 +215,12 @@ local function criarToggle(nome, posY, saveKey)
     toggle.Position = UDim2.new(1,-55,0.5,-11)
     toggle.Text = ""
     toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
-
     Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
 
     local circle = Instance.new("Frame", toggle)
     circle.Size = UDim2.new(0,18,0,18)
     circle.Position = UDim2.new(0,2,0.5,-9)
     circle.BackgroundColor3 = Color3.new(1,1,1)
-
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1,0)
 
     local state = saveData[saveKey] or false
@@ -215,7 +231,6 @@ local function criarToggle(nome, posY, saveKey)
         circle.Position = UDim2.new(1,-20,0.5,-9)
     end
     
-    -- Armazenar o estado atual
     toggleStates[saveKey] = state
 
     toggle.MouseButton1Click:Connect(function()
@@ -231,7 +246,6 @@ local function criarToggle(nome, posY, saveKey)
             circle.Position = UDim2.new(0,2,0.5,-9)
         end
         
-        -- Salvar automaticamente quando mudar
         saveDataToFile()
     end)
 
@@ -267,16 +281,14 @@ resetBtn.TextSize = 12
 Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0,8)
 
 resetBtn.MouseButton1Click:Connect(function()
-    -- Resetar todos os valores
     for key in pairs(saveData) do
         saveData[key] = false
         toggleStates[key] = false
     end
     
-    -- Salvar o reset
     saveDataToFile()
     
-    -- Atualizar a interface
+    -- Atualizar interface
     for _, child in ipairs(mainContainer:GetChildren()) do
         if child:IsA("Frame") and child:FindFirstChildOfClass("TextButton") then
             local toggleBtn = child:FindFirstChildOfClass("TextButton")
@@ -307,7 +319,7 @@ resetBtn.MouseButton1Click:Connect(function()
     notif:Destroy()
 end)
 
--- FUNÇÕES (com estado salvo)
+-- FUNÇÕES
 local getAuto = criarToggle("Auto Attack", 5, "autoAttack")
 local getEsp = criarToggle("ESP", 45, "esp")
 local getSpin = criarToggle("Spin Bot", 85, "spin")
@@ -498,7 +510,7 @@ close.MouseButton1Click:Connect(function()
 end)
 
 -- Carregar dados ao iniciar
-loadData()
+loadFromBrowser()
 
 -- AUTO ATTACK
 RunService.RenderStepped:Connect(function()
@@ -573,16 +585,6 @@ local function applySpeed()
     if humanoid.WalkSpeed ~= targetSpeed then
         humanoid.WalkSpeed = targetSpeed
     end
-    
-    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local moveDirection = hrp.CFrame.LookVector
-        if humanoid.MoveDirection.Magnitude > 0 then
-            if hrp.Velocity.Magnitude < targetSpeed - 5 then
-                hrp.Velocity = moveDirection * targetSpeed
-            end
-        end
-    end
 end
 
 spawn(function()
@@ -605,13 +607,6 @@ player.CharacterAdded:Connect(function(character)
     if humanoid then
         humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
             applySpeed()
-        end)
-        
-        spawn(function()
-            while humanoid and humanoid.Parent do
-                task.wait(0.1)
-                applySpeed()
-            end
         end)
     end
 end)
