@@ -1,11 +1,10 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 
--- Sistema de Salvamento usando _G para persistência
+-- Sistema de Salvamento usando o próprio dicionário de dados
 local saveData = {
     autoAttack = false,
     esp = false,
@@ -16,49 +15,38 @@ local saveData = {
     speed = false
 }
 
-local SAVE_KEY = "ZzzUI_SaveData"
-
--- Carregar dados salvos do _G
+-- Carregar dados salvos
 local function loadData()
-    if _G[SAVE_KEY] then
-        local loadedData = _G[SAVE_KEY]
-        for key, value in pairs(loadedData) do
-            if saveData[key] ~= nil then
-                saveData[key] = value
+    -- Verificar se existe dados salvos no player
+    local saved = player:GetAttribute("ZzzUI_SaveData")
+    if saved then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(saved)
+        end)
+        if success and data then
+            for key, value in pairs(data) do
+                if saveData[key] ~= nil then
+                    saveData[key] = value
+                end
             end
+            print("✅ Dados carregados com sucesso!")
+            return true
         end
-        print("✅ Dados carregados com sucesso!")
-        return true
-    else
-        print("⚠️ Nenhum dado salvo encontrado, usando padrões")
-        return false
     end
+    print("⚠️ Nenhum dado salvo encontrado, usando padrões")
+    return false
 end
 
--- Salvar dados no _G
+-- Salvar dados
 local function saveDataToFile()
-    _G[SAVE_KEY] = {}
-    for key, value in pairs(saveData) do
-        _G[SAVE_KEY][key] = value
+    local http = game:GetService("HttpService")
+    local json = http:JSONEncode(saveData)
+    player:SetAttribute("ZzzUI_SaveData", json)
+    print("💾 Configurações salvas! Valores atuais:")
+    for k, v in pairs(saveData) do
+        print("  " .. k .. ": " .. tostring(v))
     end
-    print("💾 Configurações salvas!")
-    
-    -- Mostrar notificação
-    if frame and frame.Parent then
-        local notif = Instance.new("TextLabel", frame)
-        notif.Size = UDim2.new(0,200,0,30)
-        notif.Position = UDim2.new(0.5,-100,0.5,100)
-        notif.Text = "💾 Configurações salvas!"
-        notif.BackgroundColor3 = Color3.fromRGB(0,170,0)
-        notif.TextColor3 = Color3.new(1,1,1)
-        notif.Font = Enum.Font.GothamBold
-        notif.TextSize = 12
-        Instance.new("UICorner", notif).CornerRadius = UDim.new(0,5)
-        notif.ZIndex = 10
-        
-        task.wait(2)
-        notif:Destroy()
-    end
+    return true
 end
 
 -- GUI
@@ -164,9 +152,24 @@ creditsContainer.ScrollBarThickness = 6
 creditsContainer.BorderSizePixel = 0
 creditsContainer.Visible = false
 
--- Variáveis para armazenar os estados dos toggles
-local toggleStates = {}
-local toggleButtons = {}
+-- Variáveis para armazenar os estados
+local toggleValues = {}
+
+-- Função para atualizar a interface visual
+local function atualizarToggle(saveKey, state)
+    if toggleValues[saveKey] and toggleValues[saveKey].toggle then
+        local toggle = toggleValues[saveKey].toggle
+        local circle = toggleValues[saveKey].circle
+        
+        if state then
+            toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
+            circle.Position = UDim2.new(1,-20,0.5,-9)
+        else
+            toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            circle.Position = UDim2.new(0,2,0.5,-9)
+        end
+    end
+end
 
 -- 🔘 TOGGLE COM SALVAMENTO
 local function criarToggle(nome, posY, saveKey)
@@ -199,36 +202,32 @@ local function criarToggle(nome, posY, saveKey)
     circle.BackgroundColor3 = Color3.new(1,1,1)
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1,0)
 
-    local state = saveData[saveKey] or false
+    -- Armazenar referências
+    toggleValues[saveKey] = {
+        toggle = toggle,
+        circle = circle,
+        state = saveData[saveKey]
+    }
     
     -- Aplicar estado inicial
-    if state then
-        toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
-        circle.Position = UDim2.new(1,-20,0.5,-9)
-    end
-    
-    toggleStates[saveKey] = state
-    toggleButtons[saveKey] = {toggle = toggle, circle = circle}
+    atualizarToggle(saveKey, saveData[saveKey])
 
     toggle.MouseButton1Click:Connect(function()
-        state = not state
-        saveData[saveKey] = state
-        toggleStates[saveKey] = state
-
-        if state then
-            toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            circle.Position = UDim2.new(1,-20,0.5,-9)
-        else
-            toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            circle.Position = UDim2.new(0,2,0.5,-9)
-        end
+        -- Alternar estado
+        saveData[saveKey] = not saveData[saveKey]
+        toggleValues[saveKey].state = saveData[saveKey]
         
-        -- Salvar automaticamente quando mudar
+        -- Atualizar visual
+        atualizarToggle(saveKey, saveData[saveKey])
+        
+        -- Salvar
         saveDataToFile()
+        
+        print("🔄 " .. nome .. " alterado para: " .. tostring(saveData[saveKey]))
     end)
 
     return function() 
-        return toggleStates[saveKey] or false
+        return saveData[saveKey]
     end
 end
 
@@ -245,6 +244,20 @@ Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0,8)
 
 saveBtn.MouseButton1Click:Connect(function()
     saveDataToFile()
+    
+    local notif = Instance.new("TextLabel", frame)
+    notif.Size = UDim2.new(0,200,0,30)
+    notif.Position = UDim2.new(0.5,-100,0.5,100)
+    notif.Text = "💾 Configurações salvas!"
+    notif.BackgroundColor3 = Color3.fromRGB(0,170,0)
+    notif.TextColor3 = Color3.new(1,1,1)
+    notif.Font = Enum.Font.GothamBold
+    notif.TextSize = 12
+    Instance.new("UICorner", notif).CornerRadius = UDim.new(0,5)
+    notif.ZIndex = 10
+    
+    task.wait(2)
+    notif:Destroy()
 end)
 
 -- Botão de Reset
@@ -261,20 +274,16 @@ Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0,8)
 resetBtn.MouseButton1Click:Connect(function()
     for key in pairs(saveData) do
         saveData[key] = false
-        toggleStates[key] = false
+    end
+    
+    -- Atualizar interface
+    for key, data in pairs(toggleValues) do
+        if data then
+            atualizarToggle(key, false)
+        end
     end
     
     saveDataToFile()
-    
-    -- Atualizar interface
-    for key, btnData in pairs(toggleButtons) do
-        if btnData and btnData.toggle then
-            btnData.toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            if btnData.circle then
-                btnData.circle.Position = UDim2.new(0,2,0.5,-9)
-            end
-        end
-    end
     
     print("🔄 Configurações resetadas!")
     
@@ -710,5 +719,5 @@ RunService.RenderStepped:Connect(function()
 end)
 
 print("✅ Script carregado com sistema de salvamento!")
-print("💾 Suas configurações são salvas automaticamente!")
-print("📌 As configurações são salvas na memória do script (_G)")
+print("💾 As configurações são salvas nos atributos do jogador!")
+print("📌 Clique no botão Z para abrir o menu")
