@@ -1,11 +1,11 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
 
 local player = Players.LocalPlayer
 
--- Sistema de Salvamento usando _G (global) para persistência durante a sessão
--- E usando o navegador do jogo para salvar permanentemente
+-- Sistema de Salvamento usando _G para persistência
 local saveData = {
     autoAttack = false,
     esp = false,
@@ -18,57 +18,32 @@ local saveData = {
 
 local SAVE_KEY = "ZzzUI_SaveData"
 
--- Função para salvar no navegador do Roblox
-local function saveToBrowser()
-    pcall(function()
-        if syn and syn.crypt and syn.crypt.base64 then
-            local encoded = syn.crypt.base64.encode(game:GetService("HttpService"):JSONEncode(saveData))
-            syn.io.writefile(SAVE_KEY .. ".txt", encoded)
-        elseif writefile then
-            local encoded = game:GetService("HttpService"):JSONEncode(saveData)
-            writefile(SAVE_KEY .. ".txt", encoded)
+-- Carregar dados salvos do _G
+local function loadData()
+    if _G[SAVE_KEY] then
+        local loadedData = _G[SAVE_KEY]
+        for key, value in pairs(loadedData) do
+            if saveData[key] ~= nil then
+                saveData[key] = value
+            end
         end
-        print("💾 Configurações salvas no arquivo!")
-    end)
+        print("✅ Dados carregados com sucesso!")
+        return true
+    else
+        print("⚠️ Nenhum dado salvo encontrado, usando padrões")
+        return false
+    end
 end
 
--- Função para carregar do navegador
-local function loadFromBrowser()
-    pcall(function()
-        local data = nil
-        if syn and syn.io and syn.io.readfile then
-            local content = syn.io.readfile(SAVE_KEY .. ".txt")
-            if content then
-                local decoded = syn.crypt.base64.decode(content)
-                data = game:GetService("HttpService"):JSONDecode(decoded)
-            end
-        elseif readfile then
-            local content = readfile(SAVE_KEY .. ".txt")
-            if content then
-                data = game:GetService("HttpService"):JSONDecode(content)
-            end
-        end
-        
-        if data then
-            for key, value in pairs(data) do
-                if saveData[key] ~= nil then
-                    saveData[key] = value
-                end
-            end
-            print("✅ Dados carregados com sucesso!")
-            return true
-        else
-            print("⚠️ Nenhum dado salvo encontrado, usando padrões")
-            return false
-        end
-    end)
-end
-
--- Função para salvar dados
+-- Salvar dados no _G
 local function saveDataToFile()
-    saveToBrowser()
+    _G[SAVE_KEY] = {}
+    for key, value in pairs(saveData) do
+        _G[SAVE_KEY][key] = value
+    end
+    print("💾 Configurações salvas!")
     
-    -- Mostrar notificação se o frame existir
+    -- Mostrar notificação
     if frame and frame.Parent then
         local notif = Instance.new("TextLabel", frame)
         notif.Size = UDim2.new(0,200,0,30)
@@ -191,6 +166,7 @@ creditsContainer.Visible = false
 
 -- Variáveis para armazenar os estados dos toggles
 local toggleStates = {}
+local toggleButtons = {}
 
 -- 🔘 TOGGLE COM SALVAMENTO
 local function criarToggle(nome, posY, saveKey)
@@ -232,6 +208,7 @@ local function criarToggle(nome, posY, saveKey)
     end
     
     toggleStates[saveKey] = state
+    toggleButtons[saveKey] = {toggle = toggle, circle = circle}
 
     toggle.MouseButton1Click:Connect(function()
         state = not state
@@ -246,6 +223,7 @@ local function criarToggle(nome, posY, saveKey)
             circle.Position = UDim2.new(0,2,0.5,-9)
         end
         
+        -- Salvar automaticamente quando mudar
         saveDataToFile()
     end)
 
@@ -289,15 +267,11 @@ resetBtn.MouseButton1Click:Connect(function()
     saveDataToFile()
     
     -- Atualizar interface
-    for _, child in ipairs(mainContainer:GetChildren()) do
-        if child:IsA("Frame") and child:FindFirstChildOfClass("TextButton") then
-            local toggleBtn = child:FindFirstChildOfClass("TextButton")
-            if toggleBtn and toggleBtn ~= saveBtn and toggleBtn ~= resetBtn then
-                local circle = toggleBtn:FindFirstChildOfClass("Frame")
-                if circle then
-                    toggleBtn.BackgroundColor3 = Color3.fromRGB(80,80,80)
-                    circle.Position = UDim2.new(0,2,0.5,-9)
-                end
+    for key, btnData in pairs(toggleButtons) do
+        if btnData and btnData.toggle then
+            btnData.toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
+            if btnData.circle then
+                btnData.circle.Position = UDim2.new(0,2,0.5,-9)
             end
         end
     end
@@ -510,7 +484,7 @@ close.MouseButton1Click:Connect(function()
 end)
 
 -- Carregar dados ao iniciar
-loadFromBrowser()
+loadData()
 
 -- AUTO ATTACK
 RunService.RenderStepped:Connect(function()
@@ -737,3 +711,4 @@ end)
 
 print("✅ Script carregado com sistema de salvamento!")
 print("💾 Suas configurações são salvas automaticamente!")
+print("📌 As configurações são salvas na memória do script (_G)")
