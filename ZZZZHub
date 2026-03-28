@@ -1,723 +1,340 @@
+-- ============================================
+-- BRAINROT DUELS SCRIPT
+-- ============================================
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-
 local player = Players.LocalPlayer
 
--- Sistema de Salvamento usando o próprio dicionário de dados
-local saveData = {
-    autoAttack = false,
-    esp = false,
-    spin = false,
-    reset = false,
-    jump = false,
-    autoHit = false,
-    speed = false
+-- ========== CONFIGURAÇÕES ==========
+local config = {
+    antiRagdoll = false,
+    speedEnabled = false,
+    speedValue = 50,
+    autoGrab = false
 }
 
--- Carregar dados salvos
-local function loadData()
-    -- Verificar se existe dados salvos no player
-    local saved = player:GetAttribute("ZzzUI_SaveData")
-    if saved then
-        local success, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(saved)
-        end)
-        if success and data then
-            for key, value in pairs(data) do
-                if saveData[key] ~= nil then
-                    saveData[key] = value
-                end
-            end
-            print("✅ Dados carregados com sucesso!")
-            return true
-        end
-    end
-    print("⚠️ Nenhum dado salvo encontrado, usando padrões")
-    return false
-end
-
--- Salvar dados
-local function saveDataToFile()
-    local http = game:GetService("HttpService")
-    local json = http:JSONEncode(saveData)
-    player:SetAttribute("ZzzUI_SaveData", json)
-    print("💾 Configurações salvas! Valores atuais:")
-    for k, v in pairs(saveData) do
-        print("  " .. k .. ": " .. tostring(v))
-    end
-    return true
-end
-
--- GUI
+-- ========== CRIAR GUI ==========
 local gui = Instance.new("ScreenGui")
-gui.Name = "ZzzUI"
+gui.Name = "BrainrotUI"
 gui.ResetOnSpawn = false
 gui.Parent = player:WaitForChild("PlayerGui")
 
--- 🔳 BOTÃO Z
-local openBtn = Instance.new("TextButton", gui)
-openBtn.Size = UDim2.new(0,50,0,50)
-openBtn.Position = UDim2.new(0,15,0.5,0)
-openBtn.BackgroundColor3 = Color3.fromRGB(30,30,30)
-openBtn.Text = "Z"
-openBtn.Font = Enum.Font.GothamBlack
-openBtn.TextSize = 24
-openBtn.TextColor3 = Color3.fromRGB(255,255,255)
-openBtn.Active = true
-openBtn.Draggable = true
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 200)
+mainFrame.Position = UDim2.new(0.5, -125, 0.5, -100)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.Visible = true
+mainFrame.Parent = gui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 12)
 
-Instance.new("UICorner", openBtn).CornerRadius = UDim.new(0,10)
-
-local strokeBtn = Instance.new("UIStroke", openBtn)
-strokeBtn.Color = Color3.fromRGB(150,150,150)
-strokeBtn.Thickness = 2
-
--- 🧱 PAINEL PRINCIPAL
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0,280,0,400)
-frame.Position = UDim2.new(0.5,-140,0.5,-200)
-frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
-frame.Visible = false
-frame.Active = true
-frame.Draggable = true
-
-Instance.new("UICorner", frame).CornerRadius = UDim.new(0,12)
-
-local stroke = Instance.new("UIStroke", frame)
-stroke.Color = Color3.fromRGB(150,150,150)
-stroke.Thickness = 2
-
--- TÍTULO
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1,-40,0,30)
-title.Position = UDim2.new(0,10,0,0)
-title.Text = "Pvp Laboratório"
-title.Font = Enum.Font.GothamBold
-title.TextColor3 = Color3.new(1,1,1)
+-- Título
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 30)
+title.Position = UDim2.new(0, 0, 0, 0)
+title.Text = "🧠 BRAINROT DUELS"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.BackgroundTransparency = 1
-title.TextXAlignment = Enum.TextXAlignment.Left
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+title.Parent = mainFrame
 
--- ❌ FECHAR
-local close = Instance.new("TextButton", frame)
-close.Size = UDim2.new(0,30,0,30)
-close.Position = UDim2.new(1,-30,0,0)
-close.Text = "X"
-close.BackgroundTransparency = 1
-close.TextColor3 = Color3.new(1,1,1)
+-- ========== ANTI RAGDOLL ==========
+local antiRagdollBtn = Instance.new("TextButton")
+antiRagdollBtn.Size = UDim2.new(0.9, 0, 0, 35)
+antiRagdollBtn.Position = UDim2.new(0.05, 0, 0, 40)
+antiRagdollBtn.Text = "🛡️ Anti Ragdoll: OFF"
+antiRagdollBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+antiRagdollBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+antiRagdollBtn.Font = Enum.Font.GothamBold
+antiRagdollBtn.TextSize = 12
+antiRagdollBtn.Parent = mainFrame
+Instance.new("UICorner", antiRagdollBtn).CornerRadius = UDim.new(0, 6)
 
--- Botões de Abas
-local tabButtons = Instance.new("Frame", frame)
-tabButtons.Size = UDim2.new(1,0,0,30)
-tabButtons.Position = UDim2.new(0,0,0,35)
-tabButtons.BackgroundTransparency = 1
+-- ========== SPEED ==========
+local speedFrame = Instance.new("Frame")
+speedFrame.Size = UDim2.new(0.9, 0, 0, 50)
+speedFrame.Position = UDim2.new(0.05, 0, 0, 85)
+speedFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+speedFrame.Parent = mainFrame
+Instance.new("UICorner", speedFrame).CornerRadius = UDim.new(0, 6)
 
-local mainTabBtn = Instance.new("TextButton", tabButtons)
-mainTabBtn.Size = UDim2.new(0.5,-1,1,0)
-mainTabBtn.Position = UDim2.new(0,0,0,0)
-mainTabBtn.Text = "⚙️ FUNÇÕES"
-mainTabBtn.Font = Enum.Font.GothamBold
-mainTabBtn.TextColor3 = Color3.new(1,1,1)
-mainTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-mainTabBtn.BorderSizePixel = 0
-mainTabBtn.TextSize = 12
-Instance.new("UICorner", mainTabBtn).CornerRadius = UDim.new(0,8)
+local speedLabel = Instance.new("TextLabel")
+speedLabel.Size = UDim2.new(0.6, 0, 0, 20)
+speedLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+speedLabel.Text = "⚡ Speed: OFF"
+speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedLabel.BackgroundTransparency = 1
+speedLabel.Font = Enum.Font.GothamBold
+speedLabel.TextSize = 11
+speedLabel.TextXAlignment = Enum.TextXAlignment.Left
+speedLabel.Parent = speedFrame
 
-local creditsTabBtn = Instance.new("TextButton", tabButtons)
-creditsTabBtn.Size = UDim2.new(0.5,-1,1,0)
-creditsTabBtn.Position = UDim2.new(0.5,1,0,0)
-creditsTabBtn.Text = "👥 CRÉDITOS"
-creditsTabBtn.Font = Enum.Font.GothamBold
-creditsTabBtn.TextColor3 = Color3.new(1,1,1)
-creditsTabBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-creditsTabBtn.BorderSizePixel = 0
-creditsTabBtn.TextSize = 12
-Instance.new("UICorner", creditsTabBtn).CornerRadius = UDim.new(0,8)
+local speedValue = Instance.new("TextLabel")
+speedValue.Size = UDim2.new(0.3, 0, 0, 20)
+speedValue.Position = UDim2.new(0.65, 0, 0.1, 0)
+speedValue.Text = "50"
+speedValue.TextColor3 = Color3.fromRGB(100, 200, 255)
+speedValue.BackgroundTransparency = 1
+speedValue.Font = Enum.Font.GothamBold
+speedValue.TextSize = 11
+speedValue.TextXAlignment = Enum.TextXAlignment.Right
+speedValue.Parent = speedFrame
 
--- Container para as abas
-local mainContainer = Instance.new("ScrollingFrame", frame)
-mainContainer.Size = UDim2.new(1,0,1,-75)
-mainContainer.Position = UDim2.new(0,0,0,65)
-mainContainer.BackgroundTransparency = 1
-mainContainer.CanvasSize = UDim2.new(0,0,0,430)
-mainContainer.ScrollBarThickness = 6
-mainContainer.BorderSizePixel = 0
+local speedSlider = Instance.new("Frame")
+speedSlider.Size = UDim2.new(0.9, 0, 0, 4)
+speedSlider.Position = UDim2.new(0.05, 0, 0.7, 0)
+speedSlider.BackgroundColor3 = Color3.fromRGB(80, 80, 90)
+speedSlider.Parent = speedFrame
+Instance.new("UICorner", speedSlider).CornerRadius = UDim.new(1, 0)
 
-local creditsContainer = Instance.new("ScrollingFrame", frame)
-creditsContainer.Size = UDim2.new(1,0,1,-75)
-creditsContainer.Position = UDim2.new(0,0,0,65)
-creditsContainer.BackgroundTransparency = 1
-creditsContainer.CanvasSize = UDim2.new(0,0,0,420)
-creditsContainer.ScrollBarThickness = 6
-creditsContainer.BorderSizePixel = 0
-creditsContainer.Visible = false
+local speedFill = Instance.new("Frame")
+speedFill.Size = UDim2.new(0.2, 0, 1, 0)
+speedFill.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+speedFill.Parent = speedSlider
+Instance.new("UICorner", speedFill).CornerRadius = UDim.new(1, 0)
 
--- Variáveis para armazenar os estados
-local toggleValues = {}
+local speedKnob = Instance.new("TextButton")
+speedKnob.Size = UDim2.new(0, 12, 0, 12)
+speedKnob.Position = UDim2.new(0.2, -6, 0.5, -6)
+speedKnob.BackgroundColor3 = Color3.fromRGB(200, 200, 255)
+speedKnob.Text = ""
+speedKnob.Parent = speedSlider
+Instance.new("UICorner", speedKnob).CornerRadius = UDim.new(1, 0)
 
--- Função para atualizar a interface visual
-local function atualizarToggle(saveKey, state)
-    if toggleValues[saveKey] and toggleValues[saveKey].toggle then
-        local toggle = toggleValues[saveKey].toggle
-        local circle = toggleValues[saveKey].circle
-        
-        if state then
-            toggle.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            circle.Position = UDim2.new(1,-20,0.5,-9)
-        else
-            toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
-            circle.Position = UDim2.new(0,2,0.5,-9)
-        end
-    end
-end
+local speedBtn = Instance.new("TextButton")
+speedBtn.Size = UDim2.new(0.2, 0, 0, 22)
+speedBtn.Position = UDim2.new(0.75, 0, 0.1, 20)
+speedBtn.Text = "ON/OFF"
+speedBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+speedBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+speedBtn.Font = Enum.Font.GothamBold
+speedBtn.TextSize = 10
+speedBtn.Parent = speedFrame
+Instance.new("UICorner", speedBtn).CornerRadius = UDim.new(0, 4)
 
--- 🔘 TOGGLE COM SALVAMENTO
-local function criarToggle(nome, posY, saveKey)
-    local bg = Instance.new("Frame", mainContainer)
-    bg.Size = UDim2.new(1,-20,0,35)
-    bg.Position = UDim2.new(0,10,0,posY)
-    bg.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    Instance.new("UICorner", bg).CornerRadius = UDim.new(0,8)
+-- ========== AUTO GRAB ==========
+local autoGrabBtn = Instance.new("TextButton")
+autoGrabBtn.Size = UDim2.new(0.9, 0, 0, 35)
+autoGrabBtn.Position = UDim2.new(0.05, 0, 0, 145)
+autoGrabBtn.Text = "🎯 Auto Grab: OFF"
+autoGrabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+autoGrabBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+autoGrabBtn.Font = Enum.Font.GothamBold
+autoGrabBtn.TextSize = 12
+autoGrabBtn.Parent = mainFrame
+Instance.new("UICorner", autoGrabBtn).CornerRadius = UDim.new(0, 6)
 
-    local txt = Instance.new("TextLabel", bg)
-    txt.Size = UDim2.new(0.6,0,1,0)
-    txt.Position = UDim2.new(0,10,0,0)
-    txt.Text = nome
-    txt.Font = Enum.Font.GothamBold
-    txt.TextColor3 = Color3.new(1,1,1)
-    txt.BackgroundTransparency = 1
-    txt.TextXAlignment = Enum.TextXAlignment.Left
-    txt.TextSize = 12
+-- Fechar
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 0, 25)
+closeBtn.Position = UDim2.new(1, -30, 0, 5)
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.BackgroundTransparency = 1
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 14
+closeBtn.Parent = mainFrame
 
-    local toggle = Instance.new("TextButton", bg)
-    toggle.Size = UDim2.new(0,45,0,22)
-    toggle.Position = UDim2.new(1,-55,0.5,-11)
-    toggle.Text = ""
-    toggle.BackgroundColor3 = Color3.fromRGB(80,80,80)
-    Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
+-- Botão flutuante para abrir/fechar
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 50, 0, 50)
+toggleBtn.Position = UDim2.new(0, 10, 0.8, 0)
+toggleBtn.Text = "🧠"
+toggleBtn.TextScaled = true
+toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+toggleBtn.Parent = gui
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 25)
 
-    local circle = Instance.new("Frame", toggle)
-    circle.Size = UDim2.new(0,18,0,18)
-    circle.Position = UDim2.new(0,2,0.5,-9)
-    circle.BackgroundColor3 = Color3.new(1,1,1)
-    Instance.new("UICorner", circle).CornerRadius = UDim.new(1,0)
+-- ========== FUNÇÕES ==========
 
-    -- Armazenar referências
-    toggleValues[saveKey] = {
-        toggle = toggle,
-        circle = circle,
-        state = saveData[saveKey]
-    }
-    
-    -- Aplicar estado inicial
-    atualizarToggle(saveKey, saveData[saveKey])
-
-    toggle.MouseButton1Click:Connect(function()
-        -- Alternar estado
-        saveData[saveKey] = not saveData[saveKey]
-        toggleValues[saveKey].state = saveData[saveKey]
-        
-        -- Atualizar visual
-        atualizarToggle(saveKey, saveData[saveKey])
-        
-        -- Salvar
-        saveDataToFile()
-        
-        print("🔄 " .. nome .. " alterado para: " .. tostring(saveData[saveKey]))
-    end)
-
-    return function() 
-        return saveData[saveKey]
-    end
-end
-
--- Botão de Salvar Manual
-local saveBtn = Instance.new("TextButton", mainContainer)
-saveBtn.Size = UDim2.new(1,-20,0,35)
-saveBtn.Position = UDim2.new(0,10,0,295)
-saveBtn.Text = "💾 SALVAR CONFIGURAÇÕES"
-saveBtn.Font = Enum.Font.GothamBold
-saveBtn.TextColor3 = Color3.new(1,1,1)
-saveBtn.BackgroundColor3 = Color3.fromRGB(0,100,0)
-saveBtn.TextSize = 12
-Instance.new("UICorner", saveBtn).CornerRadius = UDim.new(0,8)
-
-saveBtn.MouseButton1Click:Connect(function()
-    saveDataToFile()
-    
-    local notif = Instance.new("TextLabel", frame)
-    notif.Size = UDim2.new(0,200,0,30)
-    notif.Position = UDim2.new(0.5,-100,0.5,100)
-    notif.Text = "💾 Configurações salvas!"
-    notif.BackgroundColor3 = Color3.fromRGB(0,170,0)
-    notif.TextColor3 = Color3.new(1,1,1)
-    notif.Font = Enum.Font.GothamBold
-    notif.TextSize = 12
-    Instance.new("UICorner", notif).CornerRadius = UDim.new(0,5)
-    notif.ZIndex = 10
-    
-    task.wait(2)
-    notif:Destroy()
-end)
-
--- Botão de Reset
-local resetBtn = Instance.new("TextButton", mainContainer)
-resetBtn.Size = UDim2.new(1,-20,0,35)
-resetBtn.Position = UDim2.new(0,10,0,340)
-resetBtn.Text = "🔄 RESETAR CONFIGURAÇÕES"
-resetBtn.Font = Enum.Font.GothamBold
-resetBtn.TextColor3 = Color3.new(1,1,1)
-resetBtn.BackgroundColor3 = Color3.fromRGB(150,50,50)
-resetBtn.TextSize = 12
-Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0,8)
-
-resetBtn.MouseButton1Click:Connect(function()
-    for key in pairs(saveData) do
-        saveData[key] = false
-    end
-    
-    -- Atualizar interface
-    for key, data in pairs(toggleValues) do
-        if data then
-            atualizarToggle(key, false)
-        end
-    end
-    
-    saveDataToFile()
-    
-    print("🔄 Configurações resetadas!")
-    
-    local notif = Instance.new("TextLabel", frame)
-    notif.Size = UDim2.new(0,200,0,30)
-    notif.Position = UDim2.new(0.5,-100,0.5,100)
-    notif.Text = "🔄 Configurações resetadas!"
-    notif.BackgroundColor3 = Color3.fromRGB(200,50,50)
-    notif.TextColor3 = Color3.new(1,1,1)
-    notif.Font = Enum.Font.GothamBold
-    notif.TextSize = 12
-    Instance.new("UICorner", notif).CornerRadius = UDim.new(0,5)
-    notif.ZIndex = 10
-    
-    task.wait(2)
-    notif:Destroy()
-end)
-
--- FUNÇÕES
-local getAuto = criarToggle("Auto Attack", 5, "autoAttack")
-local getEsp = criarToggle("ESP", 45, "esp")
-local getSpin = criarToggle("Spin Bot", 85, "spin")
-local getReset = criarToggle("Reset Player", 125, "reset")
-local getJump = criarToggle("Super Jump", 165, "jump")
-local getAutoHit = criarToggle("Auto Hit", 205, "autoHit")
-local getSpeed = criarToggle("Speed", 245, "speed")
-
--- Função para abrir link do Discord
-local function openDiscord()
-    local discordLink = "https://discord.gg/bBWPETWW"
-    
-    pcall(function()
-        if setclipboard then
-            setclipboard(discordLink)
-        end
-    end)
-    
-    local notification = Instance.new("TextLabel", frame)
-    notification.Size = UDim2.new(0,200,0,40)
-    notification.Position = UDim2.new(0.5,-100,0.5,-20)
-    notification.Text = "🔗 Link copiado!\n" .. discordLink
-    notification.BackgroundColor3 = Color3.fromRGB(88,101,242)
-    notification.TextColor3 = Color3.new(1,1,1)
-    notification.Font = Enum.Font.GothamBold
-    notification.TextSize = 11
-    notification.TextWrapped = true
-    Instance.new("UICorner", notification).CornerRadius = UDim.new(0,8)
-    notification.ZIndex = 10
-    
-    task.wait(3)
-    notification:Destroy()
-end
-
--- Container de Créditos
-local function criarCreditos()
-    local function criarCard(nome, desc, cor, posY)
-        local card = Instance.new("Frame", creditsContainer)
-        card.Size = UDim2.new(1,-20,0,70)
-        card.Position = UDim2.new(0,10,0,posY)
-        card.BackgroundColor3 = cor
-        Instance.new("UICorner", card).CornerRadius = UDim.new(0,10)
-        
-        local nomeLabel = Instance.new("TextLabel", card)
-        nomeLabel.Size = UDim2.new(1,0,0,25)
-        nomeLabel.Position = UDim2.new(0,10,0,8)
-        nomeLabel.Text = nome
-        nomeLabel.Font = Enum.Font.GothamBold
-        nomeLabel.TextColor3 = Color3.new(1,1,1)
-        nomeLabel.TextSize = 14
-        nomeLabel.BackgroundTransparency = 1
-        nomeLabel.TextXAlignment = Enum.TextXAlignment.Left
-        
-        local descLabel = Instance.new("TextLabel", card)
-        descLabel.Size = UDim2.new(1,0,0,20)
-        descLabel.Position = UDim2.new(0,10,0,38)
-        descLabel.Text = desc
-        descLabel.Font = Enum.Font.Gotham
-        descLabel.TextColor3 = Color3.fromRGB(200,200,200)
-        descLabel.TextSize = 10
-        descLabel.BackgroundTransparency = 1
-        descLabel.TextXAlignment = Enum.TextXAlignment.Left
-    end
-    
-    local titleCred = Instance.new("TextLabel", creditsContainer)
-    titleCred.Size = UDim2.new(1,0,0,30)
-    titleCred.Position = UDim2.new(0,10,0,5)
-    titleCred.Text = "👥 DESENVOLVEDORES"
-    titleCred.Font = Enum.Font.GothamBold
-    titleCred.TextColor3 = Color3.fromRGB(255,215,0)
-    titleCred.TextSize = 14
-    titleCred.BackgroundTransparency = 1
-    titleCred.TextXAlignment = Enum.TextXAlignment.Left
-    
-    criarCard("⭐ ZZZ", "Desenvolvedor Principal | Criador do Projeto", Color3.fromRGB(80,50,50), 40)
-    criarCard("⚡ mathyas", "Co-Desenvolvedor | Programador", Color3.fromRGB(50,50,80), 115)
-    
-    local discordCard = Instance.new("TextButton", creditsContainer)
-    discordCard.Size = UDim2.new(1,-20,0,80)
-    discordCard.Position = UDim2.new(0,10,0,190)
-    discordCard.BackgroundColor3 = Color3.fromRGB(88,101,242)
-    discordCard.Text = ""
-    Instance.new("UICorner", discordCard).CornerRadius = UDim.new(0,10)
-    
-    discordCard.MouseEnter:Connect(function()
-        discordCard.BackgroundColor3 = Color3.fromRGB(114,137,218)
-    end)
-    
-    discordCard.MouseLeave:Connect(function()
-        discordCard.BackgroundColor3 = Color3.fromRGB(88,101,242)
-    end)
-    
-    discordCard.MouseButton1Click:Connect(function()
-        openDiscord()
-    end)
-    
-    local discordIcon = Instance.new("TextLabel", discordCard)
-    discordIcon.Size = UDim2.new(0,40,1,0)
-    discordIcon.Position = UDim2.new(0,10,0,0)
-    discordIcon.Text = "💬"
-    discordIcon.Font = Enum.Font.GothamBold
-    discordIcon.TextColor3 = Color3.new(1,1,1)
-    discordIcon.TextSize = 35
-    discordIcon.BackgroundTransparency = 1
-    
-    local discordTitle = Instance.new("TextLabel", discordCard)
-    discordTitle.Size = UDim2.new(1,-60,0,25)
-    discordTitle.Position = UDim2.new(0,55,0,15)
-    discordTitle.Text = "DISCORD"
-    discordTitle.Font = Enum.Font.GothamBold
-    discordTitle.TextColor3 = Color3.new(1,1,1)
-    discordTitle.TextSize = 16
-    discordTitle.BackgroundTransparency = 1
-    discordTitle.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local discordLink = Instance.new("TextLabel", discordCard)
-    discordLink.Size = UDim2.new(1,-60,0,20)
-    discordLink.Position = UDim2.new(0,55,0,42)
-    discordLink.Text = "discord.gg/bBWPETWW"
-    discordLink.Font = Enum.Font.Gotham
-    discordLink.TextColor3 = Color3.fromRGB(255,255,255)
-    discordLink.TextSize = 11
-    discordLink.BackgroundTransparency = 1
-    discordLink.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local clickText = Instance.new("TextLabel", discordCard)
-    clickText.Size = UDim2.new(1,0,0,15)
-    clickText.Position = UDim2.new(0,0,1,-18)
-    clickText.Text = "🔗 Clique para entrar no servidor"
-    clickText.Font = Enum.Font.Gotham
-    clickText.TextColor3 = Color3.fromRGB(255,255,255)
-    clickText.TextSize = 9
-    clickText.BackgroundTransparency = 1
-    clickText.TextTransparency = 0.5
-    
-    local versionFrame = Instance.new("Frame", creditsContainer)
-    versionFrame.Size = UDim2.new(1,-20,0,45)
-    versionFrame.Position = UDim2.new(0,10,0,280)
-    versionFrame.BackgroundColor3 = Color3.fromRGB(30,30,30)
-    Instance.new("UICorner", versionFrame).CornerRadius = UDim.new(0,8)
-    
-    local versionText = Instance.new("TextLabel", versionFrame)
-    versionText.Size = UDim2.new(1,0,1,0)
-    versionText.Text = "📌 Versão 2.0 | Premium Script"
-    versionText.Font = Enum.Font.GothamBold
-    versionText.TextColor3 = Color3.fromRGB(150,150,150)
-    versionText.TextSize = 10
-    versionText.BackgroundTransparency = 1
-    
-    local thanksFrame = Instance.new("Frame", creditsContainer)
-    thanksFrame.Size = UDim2.new(1,-20,0,45)
-    thanksFrame.Position = UDim2.new(0,10,0,335)
-    thanksFrame.BackgroundColor3 = Color3.fromRGB(20,20,20)
-    Instance.new("UICorner", thanksFrame).CornerRadius = UDim.new(0,8)
-    
-    local thanksText = Instance.new("TextLabel", thanksFrame)
-    thanksText.Size = UDim2.new(1,0,1,0)
-    thanksText.Text = "❤️ Obrigado por usar nosso script!"
-    thanksText.Font = Enum.Font.Gotham
-    thanksText.TextColor3 = Color3.fromRGB(200,200,200)
-    thanksText.TextSize = 10
-    thanksText.BackgroundTransparency = 1
-end
-
-criarCreditos()
-
--- Controle das abas
-mainTabBtn.MouseButton1Click:Connect(function()
-    mainTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    creditsTabBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    mainContainer.Visible = true
-    creditsContainer.Visible = false
-end)
-
-creditsTabBtn.MouseButton1Click:Connect(function()
-    creditsTabBtn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    mainTabBtn.BackgroundColor3 = Color3.fromRGB(40,40,40)
-    mainContainer.Visible = false
-    creditsContainer.Visible = true
-end)
-
-openBtn.MouseButton1Click:Connect(function()
-    frame.Visible = not frame.Visible
-end)
-
-close.MouseButton1Click:Connect(function()
-    frame.Visible = false
-end)
-
--- Carregar dados ao iniciar
-loadData()
-
--- AUTO ATTACK
-RunService.RenderStepped:Connect(function()
-    if getAuto() and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        local closest, dist = nil, math.huge
-
-        for _,plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local d = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                if d < dist then
-                    dist = d
-                    closest = plr
+-- Anti Ragdoll
+local function aplicarAntiRagdoll()
+    if config.antiRagdoll then
+        local character = player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                -- Impede ragdoll (reverte estado)
+                if humanoid.PlatformStand or humanoid.Sit then
+                    humanoid.PlatformStand = false
+                    humanoid.Sit = false
                 end
+                -- Força estado normal
+                humanoid.AutoRotate = true
             end
         end
+    end
+end
 
-        if closest then
-            local target = closest.Character.HumanoidRootPart.Position
-            hrp.Velocity = (target - hrp.Position).Unit * 60
+-- Speed
+local function aplicarSpeed()
+    if config.speedEnabled then
+        local character = player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = config.speedValue
+            end
         end
     end
-end)
+end
 
--- AUTO HIT
-RunService.RenderStepped:Connect(function()
-    if getAutoHit() and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-        
-        if humanoid and hrp then
-            local closest, dist = nil, math.huge
-            
-            for _,plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    local targetHrp = plr.Character.HumanoidRootPart
-                    local d = (targetHrp.Position - hrp.Position).Magnitude
+-- Auto Grab Brainrot
+local function autoGrabBrainrot()
+    if not config.autoGrab then return end
+    
+    local character = player.Character
+    if not character then return end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    -- Procura pelo Brainrot (ajuste o nome conforme o jogo)
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Parent then
+            local nome = obj.Name:lower()
+            -- Possíveis nomes do brainrot no jogo
+            if nome:find("brain") or nome:find("rot") or nome:find("pickup") or nome:find("orb") or nome:find("token") then
+                -- Verifica se está perto
+                local distance = (obj.Position - rootPart.Position).Magnitude
+                if distance < 15 then
+                    -- Move em direção ao item
+                    local direction = (obj.Position - rootPart.Position).Unit
+                    rootPart.Velocity = direction * 50
                     
-                    if d < dist and d < 10 then
-                        dist = d
-                        closest = plr
-                    end
-                end
-            end
-            
-            if closest and closest.Character then
-                local targetHumanoid = closest.Character:FindFirstChildOfClass("Humanoid")
-                if targetHumanoid and targetHumanoid.Health > 0 then
-                    humanoid:MoveTo(closest.Character.HumanoidRootPart.Position)
-                    
-                    local tool = player.Character:FindFirstChildOfClass("Tool")
-                    if tool then
-                        tool:Activate()
+                    -- Se estiver muito perto, toca no item
+                    if distance < 5 then
+                        firetouchinterest(rootPart, obj, 0)
+                        firetouchinterest(rootPart, obj, 1)
                     end
                 end
             end
         end
     end
-end)
+end
 
--- SPEED
-local speedEnabled = false
-
-local function applySpeed()
-    if not player.Character then return end
+-- Slider Speed
+local dragging = false
+local function updateSpeed(inputPos)
+    local sliderPos = speedSlider.AbsolutePosition.X
+    local sliderWidth = speedSlider.AbsoluteSize.X
+    local percent = math.clamp((inputPos - sliderPos) / sliderWidth, 0, 1)
+    local newValue = math.floor(26 + (200 - 26) * percent)
     
-    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
+    speedFill.Size = UDim2.new(percent, 0, 1, 0)
+    speedKnob.Position = UDim2.new(percent, -6, 0.5, -6)
+    speedValue.Text = tostring(newValue)
+    config.speedValue = newValue
     
-    local targetSpeed = speedEnabled and 50 or 27
-    
-    if humanoid.WalkSpeed ~= targetSpeed then
-        humanoid.WalkSpeed = targetSpeed
+    if config.speedEnabled then
+        aplicarSpeed()
     end
 end
 
+speedKnob.MouseButton1Down:Connect(function()
+    dragging = true
+    local connection
+    connection = UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSpeed(input.Position.X)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+            connection:Disconnect()
+        end
+    end)
+end)
+
+-- ========== EVENTOS DOS BOTÕES ==========
+
+antiRagdollBtn.MouseButton1Click:Connect(function()
+    config.antiRagdoll = not config.antiRagdoll
+    antiRagdollBtn.Text = config.antiRagdoll and "🛡️ Anti Ragdoll: ON" or "🛡️ Anti Ragdoll: OFF"
+    antiRagdollBtn.BackgroundColor3 = config.antiRagdoll and Color3.fromRGB(80, 120, 80) or Color3.fromRGB(40, 40, 50)
+end)
+
+speedBtn.MouseButton1Click:Connect(function()
+    config.speedEnabled = not config.speedEnabled
+    speedLabel.Text = config.speedEnabled and "⚡ Speed: ON" or "⚡ Speed: OFF"
+    speedBtn.Text = config.speedEnabled and "ON ✅" or "OFF ❌"
+    speedBtn.BackgroundColor3 = config.speedEnabled and Color3.fromRGB(80, 120, 80) or Color3.fromRGB(60, 60, 70)
+    
+    if not config.speedEnabled then
+        local character = player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                humanoid.WalkSpeed = 16
+            end
+        end
+    else
+        aplicarSpeed()
+    end
+end)
+
+autoGrabBtn.MouseButton1Click:Connect(function()
+    config.autoGrab = not config.autoGrab
+    autoGrabBtn.Text = config.autoGrab and "🎯 Auto Grab: ON" or "🎯 Auto Grab: OFF"
+    autoGrabBtn.BackgroundColor3 = config.autoGrab and Color3.fromRGB(80, 120, 80) or Color3.fromRGB(40, 40, 50)
+end)
+
+-- Abrir/fechar menu
+local menuAberto = true
+toggleBtn.MouseButton1Click:Connect(function()
+    menuAberto = not menuAberto
+    mainFrame.Visible = menuAberto
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = false
+    menuAberto = false
+end)
+
+-- Arrastar menu
+local draggingMenu = false
+local dragStart, menuStart
+
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingMenu = true
+        dragStart = input.Position
+        menuStart = mainFrame.Position
+    end
+end)
+
+mainFrame.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        draggingMenu = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingMenu and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(menuStart.X.Scale, menuStart.X.Offset + delta.X, menuStart.Y.Scale, menuStart.Y.Offset + delta.Y)
+    end
+end)
+
+-- ========== LOOP PRINCIPAL ==========
 spawn(function()
     while true do
-        task.wait(0.03)
-        local newState = getSpeed()
-        if newState ~= speedEnabled then
-            speedEnabled = newState
-            applySpeed()
-        end
-        applySpeed()
+        aplicarAntiRagdoll()
+        aplicarSpeed()
+        autoGrabBrainrot()
+        task.wait(0.1)
     end
 end)
 
-player.CharacterAdded:Connect(function(character)
-    task.wait(0.1)
-    applySpeed()
-    
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    if humanoid then
-        humanoid:GetPropertyChangedSignal("WalkSpeed"):Connect(function()
-            applySpeed()
-        end)
-    end
+-- Evento de personagem adicionado
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    aplicarSpeed()
 end)
 
--- SPIN BOT
-RunService.RenderStepped:Connect(function()
-    if getSpin() and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        hrp.CFrame = hrp.CFrame * CFrame.Angles(0, math.rad(25), 0)
-    end
-end)
-
--- RESET PLAYER
-local lastReset = false
-
-RunService.RenderStepped:Connect(function()
-    if getReset() and not lastReset then
-        lastReset = true
-
-        if player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-            player.Character:FindFirstChildOfClass("Humanoid").Health = 0
-        end
-
-        task.wait(1)
-        lastReset = false
-    end
-end)
-
--- SUPER JUMP
-local lastJumpTime = 0
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    
-    if getJump() and input.KeyCode == Enum.KeyCode.Space then
-        local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local currentTime = tick()
-            if currentTime - lastJumpTime > 0.08 then
-                lastJumpTime = currentTime
-                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                humanoid.JumpPower = 120
-            end
-        end
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if getJump() and player.Character then
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid.JumpPower ~= 120 then
-            humanoid.JumpPower = 120
-        end
-    else
-        if player.Character then
-            local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-            if humanoid and humanoid.JumpPower ~= 50 then
-                humanoid.JumpPower = 50
-            end
-        end
-    end
-end)
-
-player.CharacterAdded:Connect(function(character)
-    task.wait(0.5)
-    if getJump() then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.JumpPower = 120
-        end
-    end
-end)
-
--- ESP com Aura Vermelha
-RunService.RenderStepped:Connect(function()
-    if getEsp() then
-        for _,plr in pairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindFirstChild("Head") then
-
-                local head = plr.Character.Head
-                local esp = head:FindFirstChild("ESP")
-                local aura = plr.Character:FindFirstChild("Aura")
-
-                if not esp then
-                    esp = Instance.new("BillboardGui", head)
-                    esp.Name = "ESP"
-                    esp.Size = UDim2.new(0,80,0,30)
-                    esp.AlwaysOnTop = true
-
-                    local txt = Instance.new("TextLabel", esp)
-                    txt.Size = UDim2.new(1,0,1,0)
-                    txt.BackgroundTransparency = 1
-                    txt.TextColor3 = Color3.fromRGB(255,0,0)
-                    txt.Font = Enum.Font.GothamBold
-                    txt.TextScaled = true
-                end
-
-                local txt = esp:FindFirstChildOfClass("TextLabel")
-                if txt and player.Character and player.Character:FindFirstChild("Head") then
-                    local d = (head.Position - player.Character.Head.Position).Magnitude
-                    txt.Text = math.floor(d).."m"
-                end
-                
-                if not aura then
-                    local highlight = Instance.new("Highlight")
-                    highlight.Name = "Aura"
-                    highlight.Parent = plr.Character
-                    highlight.FillColor = Color3.fromRGB(255,0,0)
-                    highlight.OutlineColor = Color3.fromRGB(255,0,0)
-                    highlight.FillTransparency = 0.5
-                    highlight.OutlineTransparency = 0
-                    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                end
-            end
-        end
-    else
-        for _,plr in pairs(Players:GetPlayers()) do
-            if plr.Character and plr.Character:FindFirstChild("Head") then
-                local esp = plr.Character.Head:FindFirstChild("ESP")
-                if esp then esp:Destroy() end
-            end
-            if plr.Character and plr.Character:FindFirstChild("Aura") then
-                plr.Character:FindFirstChild("Aura"):Destroy()
-            end
-        end
-    end
-end)
-
-print("✅ Script carregado com sistema de salvamento!")
-print("💾 As configurações são salvas nos atributos do jogador!")
-print("📌 Clique no botão Z para abrir o menu")
+print("✅ Brainrot Duels Script Carregado!")
+print("⚡ Speed: 26-200 | 🛡️ Anti Ragdoll | 🎯 Auto Grab")
